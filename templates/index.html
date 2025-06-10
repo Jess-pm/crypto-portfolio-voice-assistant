@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Voice Portfolio Assistant</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #f5f7fa;
+      color: #333;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem;
+    }
+
+    h1 {
+      font-size: 1.8rem;
+      margin-bottom: 1rem;
+    }
+
+    #chat {
+      width: 100%;
+      max-width: 600px;
+      background-color: #fff;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+      min-height: 300px;
+      overflow-y: auto;
+    }
+
+    .message {
+      padding: 0.75rem;
+      margin-bottom: 0.5rem;
+      border-radius: 8px;
+      line-height: 1.4;
+    }
+
+    .message.assistant {
+      background-color: #e6f0ff;
+      align-self: flex-start;
+    }
+
+    .message.user {
+      background-color: #d1f7d6;
+      align-self: flex-end;
+    }
+
+    #start-button {
+      padding: 1rem 2rem;
+      font-size: 1.2rem;
+      border-radius: 50%;
+      border: none;
+      background-color: #007BFF;
+      color: white;
+      cursor: pointer;
+      box-shadow: 0 4px 10px rgba(0, 123, 255, 0.3);
+      transition: all 0.3s ease;
+    }
+
+    #start-button.listening {
+      background-color: #28a745;
+      animation: pulse 1.2s infinite;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.4); }
+      70% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(40, 167, 69, 0); }
+      100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(40, 167, 69, 0); }
+    }
+
+    #listening-indicator {
+      display: none;
+      align-items: center;
+      margin-bottom: 1rem;
+      color: #28a745;
+      font-weight: bold;
+      font-size: 1rem;
+    }
+
+    #mic {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background-color: #28a745;
+      margin-right: 8px;
+      animation: pulse 1.2s infinite;
+    }
+  </style>
+</head>
+<body>
+  <h1>Voice Portfolio Assistant</h1>
+  <div id="chat"></div>
+  <div id="listening-indicator" style="display: none;">
+    <div id="mic"></div>Listening...
+  </div>
+  <button id="start-button">Start</button>
+
+  <script>
+  const chat = document.getElementById("chat");
+  const indicator = document.getElementById("listening-indicator");
+  const mic = document.getElementById("mic");
+  const startButton = document.getElementById("start-button");
+
+  const appendMessage = (sender, text) => {
+    const msg = document.createElement("div");
+    msg.className = `message ${sender}`;
+    msg.textContent = text;
+    chat.appendChild(msg);
+    chat.scrollTop = chat.scrollHeight;
+  };
+
+  const speak = (text) => {
+    speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.onend = () => { setTimeout(() => startRecognition(), 500); };
+    speechSynthesis.speak(utterance);
+  };
+
+  const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+recognition.lang = "en-US";
+recognition.interimResults = false;
+recognition.maxAlternatives = 1;
+
+const startRecognition = () => {
+  indicator.style.display = "flex";
+  mic.classList.add("listening");
+
+  recognition.start();
+
+  recognition.onresult = (event) => {
+    const transcript = event.results[0][0].transcript;
+    appendMessage("user", transcript);
+    sendTranscript(transcript);
+    indicator.style.display = "none";
+    mic.classList.remove("listening");
+  };
+
+  recognition.onerror = (event) => {
+    console.error("Speech recognition error:", event.error);
+    appendMessage("assistant", "Sorry, I didn't catch that. Please try again.");
+    indicator.style.display = "none";
+    mic.classList.remove("listening");
+  };
+};
+
+  const stopRecognition = () => {
+    indicator.style.display = "none";
+    startButton.classList.remove("listening");
+  };
+
+  startButton.addEventListener("click", () => {
+    appendMessage("assistant", "Do you want to know the value of your saved portfolio or do you want to save a new portfolio?");
+    speak("Do you want to know the value of your saved portfolio or do you want to save a new portfolio?");
+  });
+  
+  const sendTranscript = (transcript) => {
+  fetch("/process", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ transcript })
+  })
+    .then((res) => res.json())
+    .then((data) => {
+      appendMessage("assistant", data.summary);
+      speak(data.summary);
+    });
+};
+</script>
+</body>
+</html>
